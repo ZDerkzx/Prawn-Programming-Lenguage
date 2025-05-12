@@ -152,6 +152,10 @@ func (lexer *Lexer) readString() (string, int) {
 }
 
 func main() {
+	fmt.Println(`el codigo enviado fue este: 
+	var nombre = "Pedro";
+	write(nombre)`)
+	fmt.Println("----TOKENS CREADOS----")
 	lexer := InitLexer(`
 	var nombre = "Pedro";
 	write(nombre);`)
