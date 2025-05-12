@@ -4,4 +4,6 @@
 
 #Objetivo
 
--- Test
+write("Hola Mundo")
+
+var x = 125
