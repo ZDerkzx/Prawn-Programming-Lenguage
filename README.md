@@ -2,7 +2,7 @@
  Lenguaje de programacion para aprender
 
 
-#Objetivo
+# Objetivo
 
 write("Hola Mundo")
 
