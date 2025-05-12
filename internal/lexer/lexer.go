@@ -108,7 +108,7 @@ func (lexer *Lexer) Tokenizer() tokenspec.Token {
 
 // salta todos los espacios
 func (lexer *Lexer) jumpWhitespaces() {
-	for lexer.currentChar == ' ' || lexer.currentChar == '\n' {
+	for lexer.currentChar == ' ' || lexer.currentChar == '\n' || lexer.currentChar == '\t' {
 		lexer.readChar()
 	}
 }
@@ -152,7 +152,9 @@ func (lexer *Lexer) readString() (string, int) {
 }
 
 func main() {
-	lexer := InitLexer(`var xx = "Hola Mundo";write("Hola Mundo");write(500 + 500;var nombre = "Pedro";)`)
+	lexer := InitLexer(`
+	var nombre = "Pedro";
+	write(nombre);`)
 	for tok := lexer.Tokenizer(); tok.Type != tokenspec.EOF; tok = lexer.Tokenizer() {
 		fmt.Printf("Type: '%-7s' Literal: '%s' Position: '%d' Length: '%d' Line: '%d'\n", tok.Type, tok.Literal, tok.Position, tok.Length, tok.Line)
 	}
