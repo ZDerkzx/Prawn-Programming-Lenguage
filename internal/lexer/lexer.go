@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"prawn/lexer/tokenspec"
 	"prawn/utils/lexer/review"
+	"time"
 )
 
 /*
@@ -52,57 +53,36 @@ func (lexer *Lexer) readChar() {
 func (lexer *Lexer) Tokenizer() tokenspec.Token {
 	//crea una variable token para cada token
 	var token tokenspec.Token
-	//salta los espacios en blanco
-	lexer.jumpWhitespaces()
-	startPos := lexer.position
-	if review.IsLetter(lexer.currentChar) {
-		//guarda en una variable el literal que contiene la sintax(no tokentype en si)
-		token.Literal, token.Length = lexer.readIdentifier()
-		// verifica si el literal existe y si existe lo guarda en token.Type
-		token.Type = tokenspec.LookupIdent(token.Literal)
-		token.Position = startPos
-		token.Line = 0
-		return token
+
+	if lexer.currentChar == 0 {
+		return tokenspec.Token{
+			Type:     tokenspec.EOF,
+			Literal:  "",
+			Position: lexer.position,
+			Line:     lexer.currentLine,
+			Length:   0,
+		}
 	}
 
-	if review.IsDigit(lexer.currentChar) {
-		token.Type = tokenspec.INT
-		token.Literal, token.Length = lexer.readNumber()
-		token.Position = startPos
-		token.Line = 0
-		return token
-	}
-	switch lexer.currentChar {
+	//salta los espacios en blanco
+	lexer.jumpWhitespaces()
+	switch {
 	//el manejo de errores ahora esta en default
-	case '=':
-		token = tokenspec.NewToken(tokenspec.ASSIGN, lexer.currentChar, lexer.position, lexer.currentLine, 1)
-	case '+':
-		token = tokenspec.NewToken(tokenspec.PLUS, lexer.currentChar, lexer.position, lexer.currentLine, 1)
-	case '-':
-		token = tokenspec.NewToken(tokenspec.MINUS, lexer.currentChar, lexer.position, lexer.currentLine, 1)
-	case '(':
-		token = tokenspec.NewToken(tokenspec.LPAREN, lexer.currentChar, lexer.position, lexer.currentLine, 1)
-	case ')':
-		token = tokenspec.NewToken(tokenspec.RPAREN, lexer.currentChar, lexer.position, lexer.currentLine, 1)
-	case '"':
-		startPos := lexer.position
-		token.Literal, token.Length = lexer.readString()
-		token.Type = tokenspec.STRING
-		token.Position = startPos
-		token.Line = lexer.currentLine
-	case ';':
-		token = tokenspec.NewToken(tokenspec.SEMICOLON, lexer.currentChar, lexer.position, lexer.currentLine, 1)
-		lexer.currentLine += 1
-	case 0:
-		token.Type = tokenspec.EOF
-		token.Literal = ""
-		token.Position = lexer.position
-		token.Line = lexer.currentLine
+	case lexer.currentChar == '"':
+		token = lexer.readStringToken()
+	case review.IsLetter(lexer.currentChar):
+		generatedToken := lexer.readIdentifier()
+		token = generatedToken
+	case review.IsDigit(lexer.currentChar):
+		generatedToken := lexer.readNumber()
+		token = generatedToken
+	case review.IsSymbol(lexer.currentChar):
+		generatedToken := lexer.readSymbols(lexer.currentChar)
+		token = generatedToken
 	default:
 		token = tokenspec.Token{Type: tokenspec.ILLEGAL, Literal: string(lexer.currentChar)}
 		lexer.readChar()
 	}
-	lexer.readChar()
 	return token
 }
 
@@ -114,53 +94,102 @@ func (lexer *Lexer) jumpWhitespaces() {
 }
 
 // parte una porcion del codigo
-func (lexer *Lexer) readIdentifier() (string, int) {
-	/*guarda la posicion actual por ejemplo
-	un "print" empieza, guarda en la variable 'start' el inicio osea 0 que
-	contiene la letra 'p' y recorre todo dependiendo si es letra y al final
-	como ya no da True retorna lexer.input cortado del punto de inicio al final de donde se quedo
-	*/
+func (lexer *Lexer) readIdentifier() tokenspec.Token {
 	start := lexer.position
 	for review.IsLetter(lexer.currentChar) || review.IsDigit(lexer.currentChar) {
 		lexer.readChar()
 	}
-	//corta el pedazo del input
-	return lexer.input[start:lexer.position], len(lexer.input[start:lexer.position])
+	literal := lexer.input[start:lexer.position]
+	return tokenspec.Token{
+		Type:     tokenspec.LookupIdent(literal),
+		Literal:  literal,
+		Length:   lexer.position - start,
+		Line:     lexer.currentLine,
+		Position: start,
+	}
 }
 
-func (lexer *Lexer) readNumber() (string, int) {
+func (lexer *Lexer) readNumber() tokenspec.Token {
+	var token tokenspec.Token
 	start := lexer.position
 	for review.IsDigit(lexer.currentChar) {
 		lexer.readChar()
 	}
-	return lexer.input[start:lexer.position], len(lexer.input[start:lexer.position])
+	token.Type = tokenspec.INT
+	token.Literal = lexer.input[start:lexer.position]
+	token.Length = len(lexer.input[start:lexer.position])
+	token.Line = lexer.currentLine
+	token.Position = start
+	return token
+}
+
+func (lexer *Lexer) readSymbols(ch byte) tokenspec.Token {
+	start := lexer.position
+	token := tokenspec.Token{
+		Literal:  string(ch),
+		Position: start,
+		Line:     lexer.currentLine,
+		Length:   1,
+	}
+
+	switch ch {
+	case '-':
+		token.Type = tokenspec.MINUS
+	case '+':
+		token.Type = tokenspec.PLUS
+	case '(':
+		token.Type = tokenspec.LPAREN
+	case ')':
+		token.Type = tokenspec.RPAREN
+	case '=':
+		token.Type = tokenspec.ASSIGN
+	case ';':
+		token.Type = tokenspec.SEMICOLON
+		lexer.currentLine++
+	default:
+		token.Type = tokenspec.ILLEGAL
+	}
+
+	lexer.readChar() // avanzar solo una vez
+	return token
 }
 
 // esta funcion lee lo que hay dentro de las comillas y lo retorna como string ya que no es un tokentype
-func (lexer *Lexer) readString() (string, int) {
-	position := lexer.position + 1
-	for {
+func (lexer *Lexer) readStringToken() tokenspec.Token {
+	start := lexer.position // guarda la posición de la comilla inicial
+	lexer.readChar()        // salta la comilla de apertura
+
+	strStart := lexer.position
+	for lexer.currentChar != '"' && lexer.currentChar != 0 {
 		lexer.readChar()
-		if lexer.currentChar == '"' {
-			break
-		}
 	}
-	/*corta de la posicion actual a la posicion final y lo retorna
-	como string y tambien la longitud de la cadena de texto
-	*/
-	return lexer.input[position:lexer.position], len(lexer.input[position:lexer.position])
+	literal := lexer.input[strStart:lexer.position] // sin comillas
+
+	token := tokenspec.Token{
+		Type:     tokenspec.STRING,
+		Literal:  literal,
+		Position: start,
+		Length:   lexer.position - strStart,
+		Line:     lexer.currentLine,
+	}
+
+	lexer.readChar() // salta la comilla final
+
+	return token
 }
 
 func main() {
 	fmt.Println(`el codigo enviado fue este: 
-	var nombre = "Pedro";
+	var nombre = 235;
 	write(nombre)`)
 	fmt.Println("----TOKENS CREADOS----")
 	lexer := InitLexer(`
-	var nombre = "Pedro";
-	write(nombre);`)
+	var nombre = 230;
+	write("Hola Mundo XDDDDSODSODSD SD-SOS-OS");`)
 	for tok := lexer.Tokenizer(); tok.Type != tokenspec.EOF; tok = lexer.Tokenizer() {
 		fmt.Printf("Type: '%-7s' Literal: '%s' Position: '%d' Length: '%d' Line: '%d'\n", tok.Type, tok.Literal, tok.Position, tok.Length, tok.Line)
+		time.Sleep(1 * time.Second)
+
 	}
 	fmt.Scanln()
 }
