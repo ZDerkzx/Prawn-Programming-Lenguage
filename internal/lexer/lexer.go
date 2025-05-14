@@ -50,9 +50,17 @@ func (lexer *Lexer) readChar() {
 	lexer.nextRead++
 }
 
+// da un vistazo del proximo caracter sin mover el puntero del Lexer
+func (lexer *Lexer) previewNextChar() rune {
+	// retorna tipo de dato 'rune' que representa el proximo caracter sin mover el actual
+	return rune(lexer.input[lexer.nextRead])
+}
+
 func (lexer *Lexer) Tokenizer() tokenspec.Token {
 	//crea una variable token para cada token
 	var token tokenspec.Token
+
+	lexer.jumpWhitespaces()
 
 	if lexer.currentChar == 0 {
 		return tokenspec.Token{
@@ -65,9 +73,8 @@ func (lexer *Lexer) Tokenizer() tokenspec.Token {
 	}
 
 	//salta los espacios en blanco
-	lexer.jumpWhitespaces()
+
 	switch {
-	//el manejo de errores ahora esta en default
 	case lexer.currentChar == '"':
 		token = lexer.readStringToken()
 	case review.IsLetter(lexer.currentChar):
@@ -80,7 +87,7 @@ func (lexer *Lexer) Tokenizer() tokenspec.Token {
 		generatedToken := lexer.readSymbols(lexer.currentChar)
 		token = generatedToken
 	default:
-		token = tokenspec.Token{Type: tokenspec.ILLEGAL, Literal: string(lexer.currentChar)}
+		token = tokenspec.NewToken(tokenspec.ILLEGAL, string(lexer.currentChar), lexer.position, lexer.currentLine, 1, 1)
 		lexer.readChar()
 	}
 	return token
@@ -100,54 +107,63 @@ func (lexer *Lexer) readIdentifier() tokenspec.Token {
 		lexer.readChar()
 	}
 	literal := lexer.input[start:lexer.position]
-	return tokenspec.Token{
-		Type:     tokenspec.LookupIdent(literal),
-		Literal:  literal,
-		Length:   lexer.position - start,
-		Line:     lexer.currentLine,
-		Position: start,
-	}
+	tokenType := tokenspec.LookupIdent(literal)
+	return tokenspec.NewToken(tokenType, literal, start, lexer.currentLine, lexer.position-start, 0)
 }
 
 func (lexer *Lexer) readNumber() tokenspec.Token {
-	var token tokenspec.Token
 	start := lexer.position
 	for review.IsDigit(lexer.currentChar) {
 		lexer.readChar()
 	}
-	token.Type = tokenspec.INT
-	token.Literal = lexer.input[start:lexer.position]
-	token.Length = len(lexer.input[start:lexer.position])
-	token.Line = lexer.currentLine
-	token.Position = start
-	return token
+	literal := lexer.input[start:lexer.position]
+	return tokenspec.NewToken(tokenspec.INT, literal, start, lexer.currentLine, len(literal), 0)
 }
 
 func (lexer *Lexer) readSymbols(ch byte) tokenspec.Token {
-	start := lexer.position
-	token := tokenspec.Token{
-		Literal:  string(ch),
-		Position: start,
-		Line:     lexer.currentLine,
-		Length:   1,
-	}
-
+	var token tokenspec.Token
 	switch ch {
 	case '-':
-		token.Type = tokenspec.MINUS
+		token = tokenspec.NewToken(tokenspec.MINUS, string(lexer.currentChar), lexer.position, lexer.currentLine, 1, 0)
 	case '+':
-		token.Type = tokenspec.PLUS
+		token = tokenspec.NewToken(tokenspec.PLUS, string(lexer.currentChar), lexer.position, lexer.currentLine, 1, 0)
 	case '(':
-		token.Type = tokenspec.LPAREN
+		token = tokenspec.NewToken(tokenspec.LPAREN, string(lexer.currentChar), lexer.position, lexer.currentLine, 1, 0)
 	case ')':
-		token.Type = tokenspec.RPAREN
+		token = tokenspec.NewToken(tokenspec.RPAREN, string(lexer.currentChar), lexer.position, lexer.currentLine, 1, 0)
 	case '=':
-		token.Type = tokenspec.ASSIGN
+		if char := lexer.previewNextChar(); char == rune(lexer.currentChar) {
+			token = tokenspec.NewToken(tokenspec.EQUAL, "==", lexer.position, lexer.currentLine, 2, 0)
+			lexer.readChar()
+		} else {
+			token = tokenspec.NewToken(tokenspec.ASSIGN, string(lexer.currentChar), lexer.position, lexer.currentLine, 1, 0)
+		}
+	case '!':
+		if char := lexer.previewNextChar(); char == '=' {
+			token = tokenspec.NewToken(tokenspec.NOT_EQUAL, "!=", lexer.position, lexer.currentLine, 2, 0)
+			lexer.readChar()
+		} else {
+			token = tokenspec.NewToken(tokenspec.BANG, string(lexer.currentChar), lexer.position, lexer.currentLine, 1, 0)
+		}
+	case '<':
+		if char := lexer.previewNextChar(); char == '=' {
+			token = tokenspec.NewToken(tokenspec.LESS_OR_EQUAL, "<=", lexer.position, lexer.currentLine, 2, 0)
+			lexer.readChar()
+		} else {
+			token = tokenspec.NewToken(tokenspec.LESS, string(lexer.currentChar), lexer.position, lexer.currentLine, 1, 0)
+		}
+	case '>':
+		if char := lexer.previewNextChar(); char == '=' {
+			token = tokenspec.NewToken(tokenspec.GREATER_OR_EQUAL, ">=", lexer.position, lexer.currentLine, 2, 0)
+			lexer.readChar()
+		} else {
+			token = tokenspec.NewToken(tokenspec.GREATER, string(lexer.currentChar), lexer.position, lexer.currentLine, 1, 0)
+		}
 	case ';':
-		token.Type = tokenspec.SEMICOLON
+		token = tokenspec.NewToken(tokenspec.SEMICOLON, string(lexer.currentChar), lexer.position, lexer.currentLine, 1, 0)
 		lexer.currentLine++
 	default:
-		token.Type = tokenspec.ILLEGAL
+		token = tokenspec.NewToken(tokenspec.ILLEGAL, string(lexer.currentChar), lexer.position, lexer.currentLine, 1, 1)
 	}
 
 	lexer.readChar() // avanzar solo una vez
@@ -163,7 +179,7 @@ func (lexer *Lexer) readStringToken() tokenspec.Token {
 	for lexer.currentChar != '"' && lexer.currentChar != 0 {
 		lexer.readChar()
 	}
-	literal := lexer.input[strStart:lexer.position] // sin comillas
+	literal := lexer.input[strStart:lexer.position]
 
 	token := tokenspec.Token{
 		Type:     tokenspec.STRING,
@@ -183,13 +199,14 @@ func main() {
 	var nombre = 235;
 	write(nombre)`)
 	fmt.Println("----TOKENS CREADOS----")
-	lexer := InitLexer(`
-	var nombre = 230;
+	lexer := InitLexer(`\\#var nombre = 250 == 250;
+	var nombre = 250 != 250;
+	var nombre = 250 >= 250;
+	var nombre = 250 <= 250;
 	write("Hola Mundo XDDDDSODSODSD SD-SOS-OS");`)
 	for tok := lexer.Tokenizer(); tok.Type != tokenspec.EOF; tok = lexer.Tokenizer() {
-		fmt.Printf("Type: '%-7s' Literal: '%s' Position: '%d' Length: '%d' Line: '%d'\n", tok.Type, tok.Literal, tok.Position, tok.Length, tok.Line)
+		fmt.Printf("Type: '%-7s' Literal: '%s' Position: '%d' Length: '%d' Line: '%d' Code: '%d'\n", tok.Type, tok.Literal, tok.Position, tok.Length, tok.Line, tok.Code)
 		time.Sleep(1 * time.Second)
-
 	}
 	fmt.Scanln()
 }
