@@ -7,8 +7,6 @@ type Token struct {
 	Literal  string
 	Position int
 	Line     int
-	Length   int
-	Code     int
 }
 
 const (
@@ -39,15 +37,37 @@ const (
 	WRITE = "WRITE"
 )
 
+var SymbolTokens = map[string]TokenType{
+	//Simbolos unitarios
+	"+": PLUS,
+	"-": MINUS,
+	"*": ASTERISK,
+	"/": SLASH,
+	"%": MOD,
+	"=": ASSIGN,
+	"(": LPAREN,
+	")": RPAREN,
+	";": SEMICOLON,
+	"!": BANG,
+	"<": LESS,
+	">": GREATER,
+
+	// Multi caracters
+	"==": EQUAL,
+	"!=": NOT_EQUAL,
+	"<=": LESS_OR_EQUAL,
+	">=": GREATER_OR_EQUAL,
+}
+
 var Keywords = map[string]TokenType{
 	"write": WRITE,
 	"var":   VAR,
 }
 
 // funcion para crear el token que usa la 'struct' TokenType y 'c' que es el currentChar
-func NewToken(tokenType TokenType, literal string, position int, line int, length int, code int) Token {
+func NewToken(tokenType TokenType, literal string, position int, line int) Token {
 	//retorna el token con el tipo y el literal
-	return Token{Type: tokenType, Literal: literal, Position: position, Line: line, Length: length, Code: code}
+	return Token{Type: tokenType, Literal: literal, Position: position, Line: line}
 }
 
 func LookupIdent(ident string) TokenType {
