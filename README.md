@@ -4,13 +4,12 @@
 
 # Objetivo
 write("Hola Mundo")
---
 var x = 125
 --
 
 # About
 
-Prawn-programming lenguage es un lenguaje de programacion de tipado dinamico,de alto nivel, al estilo de Pascal y Python,rapido para automatizacion.
+Prawn-programming-lenguage es un lenguaje de programacion de tipado dinamico de alto nivel, al estilo de Pascal y Python,rapido para automatizacion.
 
 
 filosofia de **Prawn**:
