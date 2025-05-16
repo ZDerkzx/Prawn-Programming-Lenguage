@@ -9,18 +9,18 @@ var x = 125
 
 # About
 
-Prawn-programming-lenguage es un lenguaje de programacion de tipado dinamico de alto nivel, al estilo de Pascal y Python,rapido para automatizacion.
+Prawn-programming-lenguage, es un lenguaje de programacion de tipado dinamico,de alto nivel al estilo de Pascal y Python,rapido para automatizacion y muy legible.
 
 
 filosofia de **Prawn**:
 1.Legibilidad
 2.Minimalista
 
-+entendible,-codigo,+productividad,+velocidad
+*+entendible,-codigo,+productividad,+velocidad*
 
 En que podria usar Prawn:
-**DevOps**
-**Backend**
+**DevOps
+Backend**
 
 # Lexer 
 keywords: var,write
