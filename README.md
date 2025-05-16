@@ -14,8 +14,8 @@ Prawn-programming-lenguage, es un lenguaje de programacion de tipado dinamico,de
 
 filosofia de **Prawn**:
 - Legibilidad del codigo
-  Minimalista, no contiene funciones avanzadas
-  Productividad del desarrollador
+- Minimalista, no contiene funciones avanzadas
+- Productividad del desarrollador
 
 *+entendible,-codigo,+productividad,+velocidad*
 
