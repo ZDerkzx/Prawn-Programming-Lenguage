@@ -8,6 +8,20 @@ write("Hola Mundo")
 var x = 125
 --
 
+#About
+
+Prawn-programming lenguage es un lenguaje de programacion de tipado dinamico, al estilo de Pascal y Python,rapido para automatizacion.
+
+
+filosofia de **Prawn**:
+1.Legibilidad
+2.Minimalista
+
++entendible,-codigo,+productividad,+velocidad
+
+En que podria usar Prawn:
+**DevOps**
+**Backend**
 
 # Lexer 
 keywords: var,write
@@ -16,7 +30,7 @@ tokentypes: MINUS,PLUS,LPAREN,RPAREN,SEMICOLON,STRING,INT
 
 # Parser
 
-Soon...
+Creating in **other** branch
 
 # Interpreter
 
