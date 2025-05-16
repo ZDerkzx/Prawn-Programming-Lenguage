@@ -8,7 +8,7 @@ write("Hola Mundo")
 var x = 125
 --
 
-#About
+# About
 
 Prawn-programming lenguage es un lenguaje de programacion de tipado dinamico, al estilo de Pascal y Python,rapido para automatizacion.
 
