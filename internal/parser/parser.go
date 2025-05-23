@@ -3,6 +3,8 @@ package parser
 import (
 	"fmt"
 	"prawn/lexer/tokenspec"
+	"prawn/utils/lexer/review"
+	"prawn/utils/parser/errors"
 	"strconv"
 )
 
@@ -16,9 +18,9 @@ type Parser struct {
 type Node interface{}
 
 // contiene la declaracion de una variable tipo(Name "miVariable" Value: NumberExpr)
-type VarDeclare struct {
+type VarDeclare[T any] struct {
 	Name  string
-	Value Node
+	Value T
 }
 
 // contiene una expresion tipo(x + 12)
@@ -73,6 +75,11 @@ func NewParser(tokenchan chan tokenspec.Token) *Parser {
 	}
 }
 
+// verifica el proximo token sin saltarlo
+func (parser *Parser) previewNextToken() tokenspec.Token {
+	return parser.tokens[parser.position+1]
+}
+
 // regresa el token actual sin modificar el parser.position🗣️
 func (parser *Parser) currentToken() tokenspec.Token {
 	return parser.tokens[parser.position]
@@ -87,21 +94,41 @@ func Atoi(input string) int {
 /*
 Esta funcion Lee el tipo de Dato INT,STRING,IDENT y lo retorna en Un 'struct' Node
 */
+//error esto regresa un Nil en un binaryexpr, no detecta que sea un int
 func (parser *Parser) ParseExpressionType() Node {
 	//crea un switch para validar el currentToken.Type
 	switch parser.currentToken().Type {
 	//si es INT crea el Nodo y lo pasa a Int por que esta en String(Necesita manejo de errores(ahorita nadamas por test))
 	case tokenspec.INT:
-		return NumberExpr{Value: Atoi(parser.currentToken().Literal)}
+		valueInt := Atoi(parser.currentToken().Literal)
+		return NumberExpr{Value: valueInt}
 	case tokenspec.STRING:
-		return StringExpr{Value: parser.currentToken().Literal}
+		valueStr := parser.currentToken().Literal
+		return StringExpr{Value: valueStr}
 	case tokenspec.IDENT:
-		return VarExpr{Name: parser.currentToken().Literal}
+		valueIDENT := parser.currentToken().Literal
+		return VarExpr{Name: valueIDENT}
 	// otros casos como booleanos, operaciones, etc.
 	default:
 		return nil
 	}
 
+}
+
+// tipo constructor que crea 'BinaryExpr',left node,Operator string,right node
+func (parser *Parser) CreateBinaryExpression(leftValue Node) *BinaryExpr {
+	//Guarda el primer valor(lo guarda como literal)
+	//avanza al siguiente token que seria el operador tipo (*,-,+)
+	parser.NextToken()
+	OpValue := parser.currentToken()
+	parser.NextToken()
+	rightValue := parser.ParseExpressionType()
+	parser.NextToken()
+	return &BinaryExpr{
+		Left:  leftValue,
+		Op:    OpValue.Literal,
+		Right: rightValue,
+	}
 }
 
 // Parsea write("Hola Mundo")
@@ -135,19 +162,22 @@ func (parser *Parser) ParseWriteDecl() *WriteDecl {
 	}
 }
 
-func (parser *Parser) ParseVarDeclare() *VarDeclare {
-
+func (parser *Parser) ParseVarDeclare() *VarDeclare[any] {
 	//pasa al siguiente token 'IDENT' (nombre de la variable)
 	parser.NextToken()
+	if parser.currentToken().Type != tokenspec.IDENT {
+		parser.errors = append(parser.errors, errors.CreateErrorExpected(parser.position, 2, tokenspec.IDENT, string(parser.currentToken().Type)))
+		return nil
+	}
 	//aguarda el nombre de la variable
 	varName := &VarExpr{Name: parser.currentToken().Literal}
 	//pasa al siguiente token 'ASSIGN'(=)
 	parser.NextToken()
-
 	// si no encuentra el token tira error y lo almacena en un slice de errores
 	if parser.currentToken().Type != tokenspec.ASSIGN {
 		//hay que mejorar este mensaje de error
-		parser.errors = append(parser.errors, fmt.Sprintf("Expected '=' but found '%s'", parser.currentToken().Literal))
+		parser.errors = append(parser.errors, errors.CreateErrorExpected(parser.position, 2, tokenspec.ASSIGN, string(parser.currentToken().Type)))
+		fmt.Println(parser.errors)
 		//no retorna nada
 		return nil
 	}
@@ -155,18 +185,39 @@ func (parser *Parser) ParseVarDeclare() *VarDeclare {
 	el contenido
 	*/
 	parser.NextToken()
-	//guarda el contenido usando la funcion parser.ParseExpressionType
+	if review.IsArithmeticSymbol(parser.previewNextToken().Literal) {
+		fmt.Println("FUNCIONANDO")
+		varValueLeft := parser.ParseExpressionType()
+		varValue := parser.CreateBinaryExpression(varValueLeft)
+		if parser.currentToken().Type != tokenspec.SEMICOLON {
+			fmt.Println("Error expected ';' xd")
+			parser.errors = append(parser.errors, fmt.Sprintf("Expected ';' but found '%s'", parser.currentToken().Literal))
+			return nil
+		}
+		/*avanza al siguiente token para no dejar al currentToken con el mismo si no se pone esto
+		podria causar error*/
+		parser.NextToken()
+		return &VarDeclare[any]{
+			Name:  varName.Name,
+			Value: *varValue,
+		}
+	}
 	varValue := parser.ParseExpressionType()
 	parser.NextToken()
 	if parser.currentToken().Type != tokenspec.SEMICOLON {
 		parser.errors = append(parser.errors, fmt.Sprintf("Expected ';' but found '%s'", parser.currentToken().Literal))
 		return nil
 	}
-
-	return &VarDeclare{
+	parser.NextToken()
+	return &VarDeclare[any]{
 		Name:  varName.Name,
 		Value: varValue,
 	}
+}
+
+// fix this
+func (parser *Parser) String() string {
+	return fmt.Sprintf("VarDeclare")
 }
 
 func (parser *Parser) NextToken() tokenspec.Token {
@@ -180,6 +231,7 @@ func (parser *Parser) NextToken() tokenspec.Token {
 	}
 }
 
+// parsea Nodo por nodo
 func (parser *Parser) parseNode() Node {
 	//leer que tipo de token es
 	//aqui vamos a leer los tipos de tokens
@@ -198,19 +250,20 @@ func (parser *Parser) parseNode() Node {
 	}
 }
 
-// Crea el Nodo
-func (parser *Parser) Parse() chan Node {
+// Crea el AST(Abstract Sintaxys Tree)
+func (parser *Parser) Parse() (chan Node, []string) {
 	//crea el channel
 	NodeChan := make(chan Node)
 	//mientras no se pase sigue evaluando Nodos
-	//crea un goroutine de funcion anonima
+	//crea un goroutine de funcion anonima para no interrumpir al funcionamiento de las demas funciones
 	go func() {
-		for parser.position < len(parser.tokens) {
-			//error
-			NodeChan <- parser.parseNode()
+		for parser.position <= len(parser.tokens) {
+			Node := parser.parseNode()
+			if Node != nil {
+				NodeChan <- Node
+			}
 		}
-		defer close(NodeChan)
+		close(NodeChan)
 	}()
-
-	return NodeChan
+	return NodeChan, parser.errors
 }

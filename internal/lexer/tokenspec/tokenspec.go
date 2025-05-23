@@ -37,6 +37,7 @@ const (
 	WRITE = "WRITE"
 )
 
+// Lo usa el lexer nadamas
 var SymbolTokens = map[string]TokenType{
 	//Simbolos unitarios
 	"+": PLUS,
@@ -59,6 +60,16 @@ var SymbolTokens = map[string]TokenType{
 	">=": GREATER_OR_EQUAL,
 }
 
+// Lo usa el parser nadamas
+var SymbolsArithmetic = map[string]string{
+	"+": PLUS,
+	"-": MINUS,
+	"*": ASTERISK,
+	"/": SLASH,
+	"%": MOD,
+}
+
+// Lo usan el parser y lexer
 var Keywords = map[string]TokenType{
 	"write": WRITE,
 	"var":   VAR,

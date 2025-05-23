@@ -4,13 +4,12 @@ import (
 	"fmt"
 	"prawn/lexer"
 	"prawn/parser"
-	"time"
 )
 
 func main() {
-	lexer := lexer.InitLexer(`
-	var myBool = 250;
-	write("Hola Mundo XDDDDSODSODSD SD-SOS-OS");`)
+	lexer := lexer.InitLexer(`var test = 200;
+	var myxd = 400;
+	write("Hola Mundo XDDDDSODSODSD-A2-2");`)
 
 	// Crear el parser y pasarle el canal de tokens
 	parser := parser.NewParser(lexer.TokenChan)
@@ -19,12 +18,11 @@ func main() {
 
 	/*no sabe el tipo de dato
 	 */
-	AST := parser.Parse()
+	AST, errors := parser.Parse()
 	//aqui imprime el AST que retorna el Parser
-	// esque como es un channel, para imprimir un chan es asi
-	for {
-		fmt.Println(<-AST)
-		time.Sleep(1 * time.Second)
+	// esque como es un channel, para imprimir un chan es asis
+	for node := range AST {
+		fmt.Println(node)
 	}
-
+	fmt.Println("Errors: ", errors)
 }

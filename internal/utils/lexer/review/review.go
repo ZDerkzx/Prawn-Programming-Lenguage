@@ -13,7 +13,14 @@ func IsDigit(currentChar byte) bool {
 }
 
 func IsSymbol(currentChar byte) bool {
-	if _, ok := tokenspec.SymbolTokens[string(currentChar)]; ok {
+	if _, confirm := tokenspec.SymbolTokens[string(currentChar)]; confirm {
+		return true
+	}
+	return false
+}
+
+func IsArithmeticSymbol(currentChar string) bool {
+	if _, confirm := tokenspec.SymbolsArithmetic[currentChar]; confirm {
 		return true
 	}
 	return false
