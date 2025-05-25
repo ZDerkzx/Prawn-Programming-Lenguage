@@ -23,6 +23,15 @@ type VarDeclare[T any] struct {
 	Value T
 }
 
+func (varDecl *VarDeclare[T]) Payload() map[string]map[string]interface{} {
+	return map[string]map[string]interface{}{
+		"Payload": {
+			"Ident": varDecl.Name,
+			"Value": varDecl.Value,
+		},
+	}
+}
+
 // contiene una expresion tipo(x + 12)
 type BinaryExpr struct {
 	Left  Node
@@ -46,6 +55,14 @@ type VarExpr struct {
 
 type WriteDecl struct {
 	Value Node
+}
+
+func (wrt *WriteDecl) Payload() map[string]map[string]interface{} {
+	return map[string]map[string]interface{}{
+		"Payload": {
+			"Value": wrt.Value,
+		},
+	}
 }
 
 // el constructor de la 'struct'
@@ -186,7 +203,6 @@ func (parser *Parser) ParseVarDeclare() *VarDeclare[any] {
 	*/
 	parser.NextToken()
 	if review.IsArithmeticSymbol(parser.previewNextToken().Literal) {
-		fmt.Println("FUNCIONANDO")
 		varValueLeft := parser.ParseExpressionType()
 		varValue := parser.CreateBinaryExpression(varValueLeft)
 		if parser.currentToken().Type != tokenspec.SEMICOLON {
@@ -215,11 +231,6 @@ func (parser *Parser) ParseVarDeclare() *VarDeclare[any] {
 	}
 }
 
-// fix this
-func (parser *Parser) String() string {
-	return fmt.Sprintf("VarDeclare")
-}
-
 func (parser *Parser) NextToken() tokenspec.Token {
 	if parser.position < len(parser.tokens) {
 		token := parser.tokens[parser.position]
@@ -232,38 +243,41 @@ func (parser *Parser) NextToken() tokenspec.Token {
 }
 
 // parsea Nodo por nodo
-func (parser *Parser) parseNode() Node {
+func (parser *Parser) parseNode() map[string]interface{} {
 	//leer que tipo de token es
 	//aqui vamos a leer los tipos de tokens
 	currentToken := parser.currentToken()
 	switch currentToken.Type {
 	case tokenspec.VAR:
-		//retorna el nodo
 		node := parser.ParseVarDeclare()
-		return node
+		return map[string]interface{}{
+			"VarDeclare": node.Payload(),
+		}
 	case tokenspec.WRITE:
 		node := parser.ParseWriteDecl()
-		return node
+		return map[string]interface{}{
+			"Write": node.Payload(),
+		}
 	default:
-		parser.errors = append(parser.errors, "Token '%s' no reconocido.", parser.currentToken().Literal)
+		parser.errors = append(parser.errors, fmt.Sprintf("Token '%s' no reconocido position '%d'", parser.currentToken().Literal, parser.position))
 		return nil
 	}
 }
 
 // Crea el AST(Abstract Sintaxys Tree)
-func (parser *Parser) Parse() (chan Node, []string) {
-	//crea el channel
-	NodeChan := make(chan Node)
-	//mientras no se pase sigue evaluando Nodos
-	//crea un goroutine de funcion anonima para no interrumpir al funcionamiento de las demas funciones
-	go func() {
-		for parser.position <= len(parser.tokens) {
-			Node := parser.parseNode()
-			if Node != nil {
-				NodeChan <- Node
-			}
+func (parser *Parser) Parse() (map[string][]map[string]interface{}, []string) {
+	var program []map[string]interface{}
+
+	for parser.position < len(parser.tokens) {
+		node := parser.parseNode()
+		if node != nil {
+			program = append(program, node)
+		} else {
+			// avanzar para no quedar en bucle infinito si hay error
+			parser.NextToken()
 		}
-		close(NodeChan)
-	}()
-	return NodeChan, parser.errors
+	}
+	return map[string][]map[string]interface{}{
+		"Program": program,
+	}, parser.errors
 }
